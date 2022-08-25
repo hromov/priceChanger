@@ -1,53 +1,56 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 
-	"github.com/diegoholiveira/jsonlogic/v3"
 	"github.com/hromov/query/evaluator"
+	"github.com/hromov/query/products"
 )
 
-type Product struct {
-	Name   string `json:"name"`
-	Height int    `json:"height"`
-	Price  int    `json:"price"`
+type EvaluatorService interface {
+	Eval(string) (float64, error)
 }
 
-func (p *Product) isOk(logic string) bool {
-	productBytes, _ := json.Marshal(p)
-	data := strings.NewReader(string(productBytes))
-	logicReader := strings.NewReader(logic)
-
-	var result bytes.Buffer
-
-	jsonlogic.Apply(logicReader, data, &result)
-	return strings.Contains(result.String(), "true")
+type Logic struct {
+	Constrain string
+	Rule      string
 }
 
-var products = []Product{
+var productList = []products.Product{
 	{Name: "Parcel 1", Height: 50, Price: 100},
 	{Name: "Parcel 2", Height: 75, Price: 200},
-	{Height: 250, Price: 300},
+	{Name: "Parcel 3", Height: 250, Price: 300},
 }
-var logics []string = []string{averageHight, increasedHight}
-var rules []string = []string{`%d * 1.1 + 10`, `%d * 2`}
+
+var logics = []Logic{
+	{Constrain: averageHight, Rule: "%d * 1.1 + 10"},
+	{Constrain: increasedHight, Rule: "%d * 2"},
+}
 
 func main() {
 	es := evaluator.NewService()
-	for _, p := range products {
-		for i, logic := range logics {
-			if p.isOk(logic) {
-				// fmt.Printf("Product Height %d is ok for logick = %s\n", p.Height, logic)
-				res, err := es.Eval(fmt.Sprintf(rules[i], p.Price))
-				if err != nil {
-					log.Println(err)
-				}
-				log.Printf("Product Height %d, price = %s\n", p.Height, res)
+	for _, p := range productList {
+		newPrice, err := getNewPrice(es, p, logics)
+		if err != nil {
+			log.Printf("Error: %s\n", err)
+		} else {
+			log.Printf("\tNew Price for Product %s is %d. Old price is %d\n", p.Name, newPrice, p.Price)
+		}
+	}
+
+}
+
+func getNewPrice(es EvaluatorService, p products.Product, logics []Logic) (int, error) {
+	price := p.Price
+	for _, logic := range logics {
+		if p.IsValid(logic.Constrain) {
+			if newPrice, err := es.Eval(fmt.Sprintf(logic.Rule, price)); err != nil {
+				return 0, err
+			} else {
+				price = int(newPrice)
 			}
 		}
 	}
+	return price, nil
 }

@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"strings"
 
@@ -188,10 +189,12 @@ type service struct {
 func NewService() *service {
 	return &service{participle.MustBuild[Expression]()}
 }
-func (s *service) Eval(formula string) (string, error) {
+func (s *service) Eval(formula string) (float64, error) {
 	expr, err := s.parser.ParseString("", formula)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
-	return fmt.Sprintf("%+v = %.2f", expr, expr.Eval(cli.Set)), nil
+	res := expr.Eval(cli.Set)
+	log.Printf("evaluatin: %+v = %.2f\n", expr, res)
+	return res, nil
 }
